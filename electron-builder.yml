@@ -1,8 +1,8 @@
-appId: 'helioslauncher'
-productName: 'Helios Launcher'
+appId: 'prestigetown'
+productName: 'PrestigeTown Launcher'
 artifactName: '${productName}-setup-${version}.${ext}'
 
-copyright: 'Copyright © 2018-2024 Daniel Scalzi'
+copyright: 'Copyright © 2018-2024 Daniel Scalzi & CaptainCliff'
 
 asar: true
 compression: 'maximum'
@@ -22,9 +22,11 @@ win:
 # Windows Installer Configuration
 nsis:
   oneClick: false
-  perMachine: false
-  allowElevation: true
   allowToChangeInstallationDirectory: true
+  allowElevation: true
+  perMachine: false
+  license: LICENSE.txt
+
 
 # macOS Configuration
 mac:

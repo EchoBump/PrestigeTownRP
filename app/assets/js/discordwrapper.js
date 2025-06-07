@@ -21,7 +21,13 @@ exports.initRPC = function(genSettings, servSettings, initialDetails = Lang.quer
         smallImageKey: genSettings.smallImageKey,
         smallImageText: genSettings.smallImageText,
         startTimestamp: new Date().getTime(),
-        instance: false
+        instance: false,
+        buttons:[
+            {
+                label: 'Rejoindre',
+                url: 'https://discord.gg/xrBdVQteAc'
+            },
+        ]
     }
 
     client.on('ready', () => {

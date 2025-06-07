@@ -1,20 +1,20 @@
 # Custom Language File for Launcher Customizer
 
 [ejs.app]
-title = "Helios Launcher"
+title = "Prestige Town"
 
 [ejs.landing]
-mediaGitHubURL = "https://github.com/dscalzi/HeliosLauncher"
+mediaGitHubURL = "https://github.com/EchoBump/PrestigeTownRP"
 mediaXURL = "#"
 mediaInstagramURL = "#"
 mediaYouTubeURL = "#"
-mediaDiscordURL = "https://discord.gg/zNWUXdt"
+mediaDiscordURL = "https://discord.gg/xrBdVQteAc"
 
 [ejs.settings]
-sourceGithubLink = "https://github.com/dscalZi/HeliosLauncher"
-supportLink = "https://github.com/dscalZi/HeliosLauncher/issues"
+sourceGithubLink = "https://github.com/EchoBump/PrestigeTownRP"
+supportLink = "https://github.com/EchoBump/PrestigeTownRP/issues"
 
 [ejs.welcome]
-welcomeHeader = "WELCOME TO WESTEROSCRAFT"
-welcomeDescription = "Our mission is to recreate the universe imagined by author George RR Martin in his fantasy series, A Song of Ice and Fire.  Through the collaborative effort of thousands of community members, we have sought to create Westeros as accurately and precisely as possible within Minecraft.  The world we are creating is yours to explore.  Journey from Dorne to Castle Black, and if you aren’t afraid, beyond the Wall itself, but best not delay.  As the words of House Stark ominously warn: Winter is Coming."
-welcomeDescCTA = "You are just a few clicks away from Westeros."
+welcomeHeader = "BIENVENUE SUR PRESTIGE TOWN"
+welcomeDescription = "Inspiré du projet Crazy Town de Mastu et recréé par ByLo, Prestige Town est un savant mélange de survie, d'événements absurdes, de roleplay pas toujours très sérieux, et surtout d’une bonne dose de fun entre potes. Construisez, trollez, jouez votre vie (ou pas) et rejoignez une communauté qui a clairement raté son jet de sagesse. Ici, c’est n’importe quoi… mais dans le bon sens."
+welcomeDescCTA = "Allez viens, on est (presque) sérieux ici."

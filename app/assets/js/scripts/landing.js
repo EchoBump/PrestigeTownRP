@@ -41,6 +41,35 @@ const server_selection_button = document.getElementById('server_selection_button
 const user_text               = document.getElementById('user_text')
 
 const loggerLanding = LoggerUtil.getLogger('Landing')
+const { machineIdSync } = require('node-machine-id')
+const { execSync } = require('child_process')
+const crypto = require('crypto')
+
+function getDiskSerialSafe() {
+    try {
+        const platform = process.platform
+        if (platform === 'win32') {
+            const result = execSync('wmic diskdrive get serialnumber', { encoding: 'utf8', timeout: 1500, windowsHide: true })
+            return result.split('\n').map(l => l.trim()).find(l => l && !l.toLowerCase().includes('serial')) ?? 'unknownDisk'
+        }
+        if (platform === 'linux') {
+            const result = execSync('udevadm info --query=property --name=$(lsblk -dn -o NAME | head -n 1)', { encoding: 'utf8' })
+            return result.split('\n').find(l => l.includes('ID_SERIAL_SHORT'))?.split('=')[1].trim() ?? 'unknownDisk'
+        }
+        if (platform === 'darwin') {
+            const result = execSync('system_profiler SPSerialATADataType | grep \'Serial Number\'', { encoding: 'utf8' })
+            return result.split('\n').find(l => l.includes('Serial Number'))?.split(':')[1].trim() ?? 'unknownDisk'
+        }
+    } catch { return 'unknownDisk' }
+}
+
+function createSystemFingerprint() {
+    const raw = `${machineIdSync()}||${getDiskSerialSafe()}`
+    return crypto.createHash('sha256').update(raw).digest('hex')
+}
+
+global.fingerprint = createSystemFingerprint()
+loggerLanding.info('🧬 Fingerprint généré:', global.fingerprint)
 
 /* Launch Progress Wrapper Functions */
 
@@ -98,31 +127,83 @@ function setLaunchEnabled(val){
     document.getElementById('launch_button').disabled = !val
 }
 
-// Bind launch button
-document.getElementById('launch_button').addEventListener('click', async e => {
+
+function verifyServerSignature(username, fingerprint, blocked, signature) {
+    if (!username || !fingerprint || typeof blocked === 'undefined' || !signature) {
+        console.warn('[verifyServerSignature] Données invalides', { username, fingerprint, blocked, signature })
+        return false
+    }
+
+    const pubKey = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1rakRkgsLF/dkBp4UkzO
+1NpC23LOrcj4ewp7KAdVua88Sttqf7FjXfVh7KmixRrANkB7oUEA2+eRujZg84Uc
+i0mOVZPOkBmuxD3p5tan6Hv5Z4w1xLkXQ32mJhNkS9IWj5eaSarP9xw1gYxW+CGv
+RTwLMFoPO89Fb8RtbnQ27XEW9gGJdN6vE0iDl5xKNlJIcYIRVoWnwd+zbzi0iLYl
+EUiB4f8j/LbkXezU9UAwEvZjdcHm7TR6CN6ccNTB/3WREc+Q2O9DqAyv0pZZrPjP
+ihYA2MXPjkQgxJfFbWSrMxvsHb7rPHygESXTQSMumEV+bfLvNyfvsO2UTJwjQITB
+ZwIDAQAB
+-----END PUBLIC KEY-----`
+
+    const verifier = crypto.createVerify('RSA-SHA256')
+    const data = `${username.toLowerCase().trim()}:${fingerprint}:${blocked ? '1' : '0'}`
+    verifier.update(data)
+    return verifier.verify(pubKey, signature, 'base64')
+}
+
+
+
+async function checkFingerprintSecure(fingerprint, username) {
+    try {
+        const response = await fetch('http://163.5.107.32:26190/fingerprint/verify.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fingerprint, username })
+        })
+
+        const json = await response.json().catch(() => {
+            throw new Error('Réponse JSON invalide ou vide.')
+        })
+
+        const valid = verifyServerSignature(json.username, json.fingerprint, json.blocked, json.signature)
+        return valid && json.blocked === false
+    } catch (err) {
+        loggerLanding.error('Erreur fingerprint:', err.message)
+        return false
+    }
+}
+
+
+
+document.getElementById('launch_button').addEventListener('click', async () => {
     loggerLanding.info('Launching game..')
+    const authUser = ConfigManager.getSelectedAccount()
+    const fingerprint = global.fingerprint
+    const username = authUser?.displayName ?? 'unknown'
+
+    const allowed = await checkFingerprintSecure(fingerprint, username)
+    if (!allowed) {
+        loggerLanding.warn('Erreur de lancement')
+        showLaunchFailure('Lancement bloqué', 'Code d\'erreur : 0x0404. Si vous pensez que c\'est une erreur, contactez le support.')
+        toggleLaunchArea(false)
+        return
+    }
+
+    global.fingerprintValidated = true
     try {
         const server = (await DistroAPI.getDistribution()).getServerById(ConfigManager.getSelectedServer())
         const jExe = ConfigManager.getJavaExecutable(ConfigManager.getSelectedServer())
-        if(jExe == null){
-            await asyncSystemScan(server.effectiveJavaOptions)
-        } else {
 
-            setLaunchDetails(Lang.queryJS('landing.launch.pleaseWait'))
-            toggleLaunchArea(true)
-            setLaunchPercentage(0, 100)
+        if (!jExe) return await asyncSystemScan(server.effectiveJavaOptions)
 
-            const details = await validateSelectedJvm(ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported)
-            if(details != null){
-                loggerLanding.info('Jvm Details', details)
-                await dlAsync()
+        setLaunchDetails(Lang.queryJS('landing.launch.pleaseWait'))
+        toggleLaunchArea(true)
+        setLaunchPercentage(0, 100)
 
-            } else {
-                await asyncSystemScan(server.effectiveJavaOptions)
-            }
-        }
-    } catch(err) {
-        loggerLanding.error('Unhandled error in during launch process.', err)
+        const details = await validateSelectedJvm(ensureJavaDirIsRoot(jExe), server.effectiveJavaOptions.supported)
+        return details ? await dlAsync() : await asyncSystemScan(server.effectiveJavaOptions)
+
+    } catch (err) {
+        loggerLanding.error('Unhandled error during launch process.', err)
         showLaunchFailure(Lang.queryJS('landing.launch.failureTitle'), Lang.queryJS('landing.launch.failureText'))
     }
 })
@@ -149,7 +230,7 @@ function updateSelectedAccount(authUser){
             username = authUser.displayName
         }
         if(authUser.uuid != null){
-            document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/body/${authUser.uuid}/right')`
+            document.getElementById('avatarContainer').style.backgroundImage = `url('https://mc-heads.net/head/${authUser.uuid}/right')`
         }
     }
     user_text.innerHTML = username
@@ -446,6 +527,10 @@ const GAME_LAUNCH_REGEX = /^\[.+\]: (?:MinecraftForge .+ Initialized|ModLauncher
 const MIN_LINGER = 5000
 
 async function dlAsync(login = true) {
+    if (!global.fingerprintValidated) {
+        loggerLanding.error('Tentative de lancement sans fingerprint validé.')
+        throw new Error('Lancement interdit : fingerprint non validé.')
+    }
 
     // Login parameter is temporary for debug purposes. Allows testing the validation/downloads without
     // launching the game.
